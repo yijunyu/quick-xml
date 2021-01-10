@@ -32,10 +32,14 @@ where
     type Ok = ();
     type Error = DeError;
 
-    fn serialize_key<T: ?Sized + Serialize>(&mut self, _: &T) -> Result<(), DeError> {
-        Err(DeError::Unsupported(
-            "impossible to serialize the key on its own, please use serialize_entry()",
-        ))
+    fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<(), DeError> {
+        // Err(DeError::Unsupported(
+        //    "impossible to serialize the key on its own, please use serialize_entry()",
+        //))
+        write!(self.parent.writer.inner(), "<").map_err(Error::Io)?;
+        key.serialize(&mut *self.parent)?;
+        write!(self.parent.writer.inner(), "/>").map_err(Error::Io)?;
+        Ok(())
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), DeError> {
@@ -58,15 +62,16 @@ where
     ) -> Result<(), DeError> {
         // TODO: Is it possible to ensure our key is never a composite type?
         // Anything which isn't a "primitive" would lead to malformed XML here...
-        write!(self.parent.writer.inner(), "<").map_err(Error::Io)?;
+        write!(self.parent.writer.inner(), "<node type=\"").map_err(Error::Io)?;
         key.serialize(&mut *self.parent)?;
-        write!(self.parent.writer.inner(), ">").map_err(Error::Io)?;
+        write!(self.parent.writer.inner(), "\">").map_err(Error::Io)?;
 
         value.serialize(&mut *self.parent)?;
 
-        write!(self.parent.writer.inner(), "</").map_err(Error::Io)?;
-        key.serialize(&mut *self.parent)?;
-        write!(self.parent.writer.inner(), ">").map_err(Error::Io)?;
+        write!(self.parent.writer.inner(), "</node>").map_err(Error::Io)?;
+        //write!(self.parent.writer.inner(), "</").map_err(Error::Io)?;
+        // key.serialize(&mut *self.parent)?;
+        //write!(self.parent.writer.inner(), ">").map_err(Error::Io)?;
         Ok(())
     }
 }
@@ -236,9 +241,9 @@ where
     where
         T: Serialize
     {
-        write!(self.parent.writer.inner(), "<{}>", self.name).map_err(Error::Io)?;
+        write!(self.parent.writer.inner(), "<node type=\"{}\">", self.name).map_err(Error::Io)?;
         value.serialize(&mut *self.parent)?;
-        write!(self.parent.writer.inner(), "</{}>", self.name).map_err(Error::Io)?;
+        write!(self.parent.writer.inner(), "</node>").map_err(Error::Io)?;
         Ok(())
     }
 

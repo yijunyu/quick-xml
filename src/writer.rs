@@ -95,19 +95,36 @@ impl<W: Write> Writer<W> {
         let mut next_should_line_break = true;
         let result = match *event.as_ref() {
             Event::Start(ref e) => {
-                let result = self.write_wrapped(b"<", e, b">");
+		let ss = format!("{}", String::from_utf8(e.name().to_vec()).unwrap());
+		let se = html_escape::encode_text(&ss);
+		let mut bytes = format!("{}\"", se);
+		if se.contains(" ") {
+                   bytes = format!("{}", se.replacen(" ", "\" ", 1));
+		}
+                let result = self.write_wrapped(b"<node type=\"", bytes.as_bytes(), b">");
                 if let Some(i) = self.indent.as_mut() {
                     i.grow();
                 }
                 result
             }
-            Event::End(ref e) => {
+            Event::End(ref _e) => {
                 if let Some(i) = self.indent.as_mut() {
                     i.shrink();
                 }
-                self.write_wrapped(b"</", e, b">")
+                // self.write_wrapped(b"</", e, b">")
+                self.write_wrapped(b"</", b"node", b">")
             }
-            Event::Empty(ref e) => self.write_wrapped(b"<", e, b"/>"),
+            Event::Empty(ref e) => {
+		let ss = format!("{}", String::from_utf8(e.name().to_vec()).unwrap());
+		let se = html_escape::encode_text(&ss);
+		let mut bytes = format!("{}\"", se);
+		if se.contains(" ") {
+                   bytes = format!("{}", se.replacen(" ", "\" ", 1));
+		}
+                let result = self.write_wrapped(b"<node type=\"", bytes.as_bytes(), b"/>");
+		// self.write_wrapped(b"<node type=\"", e, b"\"/>"),
+		result
+	    }
             Event::Text(ref e) => {
                 next_should_line_break = false;
                 self.write(&e.escaped())
